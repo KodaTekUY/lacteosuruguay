@@ -1,0 +1,3 @@
+-- Adds active/inactive flag for products.
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
