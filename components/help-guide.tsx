@@ -224,7 +224,7 @@ export const dealDetailHelpSections: HelpSection[] = [
     steps: [
       "Pack/Combo: Un conjunto de productos a precio especial. Se agregan todos juntos.",
       "Precio por cantidad: El precio unitario baja mientras más compres.",
-      "Precio desde X unidades: A partir de cierta cantidad, aplica un precio especial.",
+      "Precio mayorista: A partir de cierta cantidad, aplica un precio especial.",
       "% Descuento: Se aplica un porcentaje de descuento sobre el precio original.",
     ],
   },
@@ -340,7 +340,7 @@ export const adminDealsHelpSections: HelpSection[] = [
     steps: [
       "Pack/Combo (bundle): Varios productos juntos a precio total especial.",
       "Precio por cantidad (tiered_total): Define precios o descuentos por tramos de cantidad.",
-      "Precio desde X unidades (threshold_unit): Cambia el precio a partir de una cantidad mínima.",
+      "Precio mayorista (threshold_unit): Cambia el precio a partir de una cantidad mínima.",
       "% Descuento (percent_off): Aplica un porcentaje de descuento sobre el precio original.",
     ],
   },

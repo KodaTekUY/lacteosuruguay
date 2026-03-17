@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
+import { toAuthActionState, type AuthActionState } from "@/components/admin/login-error"
 import {
   createCategory,
   updateCategory,
@@ -20,8 +21,18 @@ import {
   type Product as DbProduct,
   type UpdateDealInput,
 } from "@/lib/db"
-import { clearAuthCookie, requireAdminAuth, setAuthCookie, validateCredentials } from "@/lib/auth"
 import {
+  canRegisterAdmin,
+  clearAuthCookie,
+  registerAdminCredentials,
+  requireAdminAuth,
+  setAuthCookie,
+  updateCredentials,
+  validateCredentials,
+} from "@/lib/auth"
+import {
+  authCredentialsSchema,
+  authCredentialsUpdateSchema,
   createCategorySchema,
   createDealSchema,
   createProductSchema,
@@ -32,15 +43,95 @@ import {
   updateProductSchema,
 } from "@/lib/validation/admin"
 
-// Auth actions
-export async function loginAction(username: string, password: string) {
-  const isValid = await validateCredentials(username, password)
+function getFormValue(formData: FormData, key: string): string {
+  const value = formData.get(key)
+  return typeof value === "string" ? value : ""
+}
 
-  if (!isValid) {
-    throw new Error("Credenciales incorrectas")
+// Auth actions
+export async function loginAction(
+  _previousState: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  let data
+  try {
+    data = parseWithSchema(authCredentialsSchema, {
+      username: getFormValue(formData, "username"),
+      password: getFormValue(formData, "password"),
+    })
+  } catch (error) {
+    return toAuthActionState(error, "Error al iniciar sesión")
   }
 
-  await setAuthCookie(username)
+  const isValid = await validateCredentials(data.username, data.password)
+
+  if (!isValid) {
+    return { error: "Credenciales incorrectas" }
+  }
+
+  await setAuthCookie(data.username)
+  redirect("/admin")
+}
+
+export async function registerAction(
+  _previousState: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  let data
+  try {
+    data = parseWithSchema(authCredentialsSchema, {
+      username: getFormValue(formData, "username"),
+      password: getFormValue(formData, "password"),
+    })
+  } catch (error) {
+    return toAuthActionState(error, "No se pudo crear el usuario administrador")
+  }
+
+  const registrationAllowed = await canRegisterAdmin()
+
+  if (!registrationAllowed) {
+    return { error: "El registro inicial ya fue realizado" }
+  }
+
+  try {
+    await registerAdminCredentials(data.username, data.password)
+  } catch (error) {
+    return toAuthActionState(error, "No se pudo crear el usuario administrador")
+  }
+
+  await setAuthCookie(data.username)
+  redirect("/admin")
+}
+
+export async function updateCredentialsAction(
+  _previousState: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  try {
+    await requireAdminAuth()
+  } catch {
+    redirect("/admin")
+  }
+
+  let data
+  try {
+    data = parseWithSchema(authCredentialsUpdateSchema, {
+      currentUsername: getFormValue(formData, "currentUsername"),
+      currentPassword: getFormValue(formData, "currentPassword"),
+      newUsername: getFormValue(formData, "newUsername"),
+      newPassword: getFormValue(formData, "newPassword"),
+    })
+  } catch (error) {
+    return toAuthActionState(error, "No se pudieron actualizar las credenciales")
+  }
+
+  try {
+    await updateCredentials(data.currentUsername, data.currentPassword, data.newUsername, data.newPassword)
+  } catch (error) {
+    return toAuthActionState(error, "No se pudieron actualizar las credenciales")
+  }
+
+  await setAuthCookie(data.newUsername)
   redirect("/admin")
 }
 

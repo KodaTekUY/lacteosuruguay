@@ -32,7 +32,7 @@ describe("product-detail-view helpers", () => {
   it("maps deal type labels to user friendly text", () => {
     expect(getDealTypeLabel("bundle")).toBe("Pack/Combo")
     expect(getDealTypeLabel("tiered_total")).toBe("Precio por cantidad")
-    expect(getDealTypeLabel("threshold_unit")).toBe("Precio desde X unidades")
+    expect(getDealTypeLabel("threshold_unit")).toBe("Precio mayorista")
     expect(getDealTypeLabel("percent_off")).toBe("% Descuento")
   })
 

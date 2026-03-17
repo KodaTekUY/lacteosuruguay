@@ -1,8 +1,8 @@
 import { getCategories, getProducts, getAllDeals } from "@/lib/db"
 import { AdminPanel } from "@/components/admin/admin-panel"
 import { LoginForm } from "@/components/admin/login-form"
-import { isAuthenticated } from "@/lib/auth"
-import { loginAction } from "./actions"
+import { canRegisterAdmin, isAuthenticated } from "@/lib/auth"
+import { loginAction, registerAction } from "./actions"
 
 export const metadata = {
   title: "Admin - Gestión de Catálogo",
@@ -15,9 +15,16 @@ export const metadata = {
 
 export default async function AdminPage() {
   const authenticated = await isAuthenticated()
+  const allowRegister = await canRegisterAdmin()
 
   if (!authenticated) {
-    return <LoginForm onLogin={loginAction} />
+    return (
+      <LoginForm
+        loginAction={loginAction}
+        registerAction={registerAction}
+        canRegister={allowRegister}
+      />
+    )
   }
 
   const [categories, products, deals] = await Promise.all([getCategories(), getProducts(), getAllDeals()])

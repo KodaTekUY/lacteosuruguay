@@ -1,27 +1,24 @@
 import { describe, expect, it } from "vitest"
 
-import { getLoginErrorMessage } from "@/components/admin/login-error"
+import {
+  AUTH_ACTION_INITIAL_STATE,
+  toAuthActionState,
+} from "@/components/admin/login-error"
 
-describe("getLoginErrorMessage", () => {
-  it("returns undefined for NEXT_REDIRECT errors", () => {
-    const redirectError = {
-      digest: "NEXT_REDIRECT;replace;/admin;307;",
-    }
-
-    expect(getLoginErrorMessage(redirectError)).toBeUndefined()
+describe("toAuthActionState", () => {
+  it("exposes the original error message when available", () => {
+    expect(toAuthActionState(new Error("Credenciales incorrectas"), "Error al iniciar sesión")).toEqual({
+      error: "Credenciales incorrectas",
+    })
   })
 
-  it("returns undefined when the error message is NEXT_REDIRECT", () => {
-    expect(getLoginErrorMessage(new Error("NEXT_REDIRECT"))).toBeUndefined()
+  it("falls back to the provided message for unknown errors", () => {
+    expect(toAuthActionState("unexpected", "Error al iniciar sesión")).toEqual({
+      error: "Error al iniciar sesión",
+    })
   })
 
-  it("returns the error message for regular errors", () => {
-    expect(getLoginErrorMessage(new Error("Credenciales incorrectas"))).toBe(
-      "Credenciales incorrectas",
-    )
-  })
-
-  it("returns a generic message for unknown errors", () => {
-    expect(getLoginErrorMessage("unexpected")).toBe("Error al iniciar sesión")
+  it("starts with an empty error state", () => {
+    expect(AUTH_ACTION_INITIAL_STATE).toEqual({ error: null })
   })
 })

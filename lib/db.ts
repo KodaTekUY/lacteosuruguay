@@ -59,6 +59,14 @@ export interface CatalogProductsPage {
   totalPages: number
 }
 
+export interface AdminUser {
+  id: number
+  username: string
+  password_hash: string
+  created_at: string
+  updated_at: string
+}
+
 export type DealType = 'bundle' | 'tiered_total' | 'threshold_unit' | 'percent_off'
 export type ApplyMode = 'best_price' | 'repeatable' | 'once'
 
@@ -369,6 +377,7 @@ const fallbackDeals: Deal[] = [
 ]
 
 const isDatabaseConfigured = !!process.env.DATABASE_URL
+export const isDatabaseAvailable = isDatabaseConfigured
 
 // Create SQL client only if DATABASE_URL is available
 const sql = isDatabaseConfigured ? neon(process.env.DATABASE_URL!) : null
@@ -1163,5 +1172,68 @@ export async function deleteDeal(id: number): Promise<boolean> {
   } catch (error) {
     console.error("Error deleting deal:", error)
     return false
+  }
+}
+
+export async function hasAdminUsers(): Promise<boolean> {
+  if (!sql) return false
+  try {
+    const result = await sql`SELECT COUNT(*)::int AS total FROM admin_users`
+    const total = Number((result[0] as { total?: number })?.total ?? 0)
+    return total > 0
+  } catch (error) {
+    console.error("Error checking admin users:", error)
+    return false
+  }
+}
+
+export async function getAdminUserByUsername(username: string): Promise<AdminUser | null> {
+  if (!sql) return null
+  try {
+    const result = await sql`
+      SELECT id, username, password_hash, created_at, updated_at
+      FROM admin_users
+      WHERE username = ${username}
+      LIMIT 1
+    `
+    return (result[0] as AdminUser) ?? null
+  } catch (error) {
+    console.error("Error fetching admin user:", error)
+    return null
+  }
+}
+
+export async function createAdminUser(username: string, passwordHash: string): Promise<AdminUser | null> {
+  if (!sql) return null
+  try {
+    const result = await sql`
+      INSERT INTO admin_users (username, password_hash)
+      VALUES (${username}, ${passwordHash})
+      RETURNING id, username, password_hash, created_at, updated_at
+    `
+    return (result[0] as AdminUser) ?? null
+  } catch (error) {
+    console.error("Error creating admin user:", error)
+    return null
+  }
+}
+
+export async function updateAdminUserCredentials(
+  id: number,
+  username: string,
+  passwordHash: string,
+): Promise<AdminUser | null> {
+  if (!sql) return null
+  try {
+    const result = await sql`
+      UPDATE admin_users
+      SET username = ${username}, password_hash = ${passwordHash}, updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING id, username, password_hash, created_at, updated_at
+    `
+    return (result[0] as AdminUser) ?? null
+  } catch (error) {
+    console.error("Error updating admin user credentials:", error)
+    return null
   }
 }

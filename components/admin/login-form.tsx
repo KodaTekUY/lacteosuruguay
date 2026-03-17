@@ -1,40 +1,40 @@
-﻿"use client"
+"use client"
 
-import { useState } from "react"
+import { useActionState, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Lock, LogIn } from "lucide-react"
-import { getLoginErrorMessage } from "@/components/admin/login-error"
+import {
+  AUTH_ACTION_INITIAL_STATE,
+  type AuthFormAction,
+} from "@/components/admin/login-error"
 
 interface LoginFormProps {
-  onLogin: (username: string, password: string) => Promise<void>
-  error?: string
+  loginAction: AuthFormAction
+  registerAction?: AuthFormAction
+  canRegister?: boolean
 }
 
-export function LoginForm({ onLogin, error }: LoginFormProps) {
+async function noopRegisterAction(): Promise<typeof AUTH_ACTION_INITIAL_STATE> {
+  return AUTH_ACTION_INITIAL_STATE
+}
+
+export function LoginForm({ loginAction, registerAction, canRegister = false }: LoginFormProps) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [localError, setLocalError] = useState<string | undefined>(error)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setLocalError(undefined)
-
-    try {
-      await onLogin(username, password)
-    } catch (err) {
-      const errorMessage = getLoginErrorMessage(err)
-      if (errorMessage) {
-        setLocalError(errorMessage)
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const [submittedAction, setSubmittedAction] = useState<"login" | "register">("login")
+  const [loginState, submitLoginAction, loginPending] = useActionState(
+    loginAction,
+    AUTH_ACTION_INITIAL_STATE,
+  )
+  const [registerState, submitRegisterAction, registerPending] = useActionState(
+    registerAction ?? noopRegisterAction,
+    AUTH_ACTION_INITIAL_STATE,
+  )
+  const isLoading = loginPending || registerPending
+  const currentError = submittedAction === "register" ? registerState.error : loginState.error
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-muted/50 via-background to-muted/30 p-4">
@@ -47,13 +47,29 @@ export function LoginForm({ onLogin, error }: LoginFormProps) {
           </div>
           <CardTitle className="text-2xl font-bold">Panel de Administración</CardTitle>
           <CardDescription>Ingresa tus credenciales para acceder</CardDescription>
+          {canRegister && (
+            <CardDescription className="text-amber-700">
+              No hay usuario administrador aún. Registrá el primero.
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form
+            action={submitLoginAction}
+            className="space-y-4"
+            onSubmitCapture={(event) => {
+              const nativeEvent = event.nativeEvent as SubmitEvent
+              const submitter = nativeEvent.submitter as HTMLElement | null
+              setSubmittedAction(
+                submitter?.getAttribute("data-auth-action") === "register" ? "register" : "login",
+              )
+            }}
+          >
             <div className="space-y-2">
               <Label htmlFor="username">Usuario</Label>
               <Input
                 id="username"
+                name="username"
                 type="text"
                 placeholder="Ingresa tu usuario"
                 value={username}
@@ -67,6 +83,7 @@ export function LoginForm({ onLogin, error }: LoginFormProps) {
               <Label htmlFor="password">Contraseña</Label>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 placeholder="Ingresa tu contraseña"
                 value={password}
@@ -76,13 +93,18 @@ export function LoginForm({ onLogin, error }: LoginFormProps) {
                 autoComplete="current-password"
               />
             </div>
-            {localError && (
+            {currentError && (
               <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-                {localError}
+                {currentError}
               </div>
             )}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isLoading}
+              data-auth-action="login"
+            >
+              {loginPending ? (
                 <>
                   <div className="w-4 h-4 border-2 border-background border-t-transparent rounded-full animate-spin mr-2" />
                   Iniciando sesión...
@@ -94,6 +116,17 @@ export function LoginForm({ onLogin, error }: LoginFormProps) {
                 </>
               )}
             </Button>
+            {canRegister && (
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading}
+                formAction={submitRegisterAction}
+                data-auth-action="register"
+              >
+                {registerPending ? "Creando usuario..." : "Crear usuario"}
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>

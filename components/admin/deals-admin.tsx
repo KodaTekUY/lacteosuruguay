@@ -32,7 +32,7 @@ interface DealsAdminProps {
 const dealTypeOptions: { value: DealType; label: string; description: string }[] = [
   { value: "bundle", label: "Bundle/Pack", description: "Combo con precio fijo (pack x2, mayo+atún)" },
   { value: "tiered_total", label: "Precio por cantidad", description: "1x $45 / 3x $120" },
-  { value: "threshold_unit", label: "Precio unitario desde X", description: "Llevando más de 2: $650 c/u" },
+  { value: "threshold_unit", label: "Precio mayorista", description: "Llevando más de 2: $650 c/u" },
   { value: "percent_off", label: "Porcentaje de descuento", description: "20% OFF" },
 ]
 
@@ -571,7 +571,7 @@ export function DealsAdmin({ deals, setDeals, products }: DealsAdminProps) {
                     const validPriceTypes = getValidPriceTypes()
                     
                     return (
-                    <div key={index} className="flex items-end gap-2 p-3 bg-muted/30 rounded-lg border">
+                    <div key={index} className="flex flex-wrap items-end gap-2 p-3 bg-muted/30 rounded-lg border">
                       <div className="space-y-1">
                         <Label className="text-xs">Min Qty</Label>
                         <Input

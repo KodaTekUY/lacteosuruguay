@@ -168,6 +168,26 @@ export const updateDealSchema = z
     validateDateRange(data.starts_at, data.ends_at, ctx)
   })
 
+export const authCredentialsSchema = z.object({
+  username: requiredTextSchema("Usuario", 100),
+  password: z.string().trim().min(8, "La contraseña debe tener al menos 8 caracteres").max(200),
+})
+
+export const authCredentialsUpdateSchema = z.object({
+  currentUsername: requiredTextSchema("Usuario actual", 100),
+  currentPassword: z
+    .string()
+    .trim()
+    .min(8, "La contraseña actual debe tener al menos 8 caracteres")
+    .max(200),
+  newUsername: requiredTextSchema("Nuevo usuario", 100),
+  newPassword: z
+    .string()
+    .trim()
+    .min(8, "La nueva contraseña debe tener al menos 8 caracteres")
+    .max(200),
+})
+
 export function parseWithSchema<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, value: unknown): T {
   const parsed = schema.safeParse(value)
   if (parsed.success) return parsed.data

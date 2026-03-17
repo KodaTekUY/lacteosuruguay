@@ -1,5 +1,12 @@
 import crypto from "node:crypto"
 import { cookies } from "next/headers"
+import {
+  createAdminUser,
+  getAdminUserByUsername,
+  hasAdminUsers,
+  isDatabaseAvailable,
+  updateAdminUserCredentials,
+} from "@/lib/db"
 
 const AUTH_COOKIE_NAME = "admin-auth"
 const AUTH_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
@@ -14,6 +21,10 @@ interface TokenOptions {
   nowMs?: number
   maxAgeSeconds?: number
 }
+
+const PASSWORD_HASH_ITERATIONS = 210_000
+const PASSWORD_HASH_KEY_LENGTH = 32
+const PASSWORD_HASH_DIGEST = "sha256"
 
 function getEnv(name: string): string | null {
   const value = process.env[name]
@@ -88,9 +99,84 @@ export function verifyAuthToken(token: string, options?: Pick<TokenOptions, "now
 }
 
 export async function validateCredentials(username: string, password: string): Promise<boolean> {
+  const dbUser = await getAdminUserByUsername(username)
+  if (dbUser) {
+    return verifyPassword(password, dbUser.password_hash)
+  }
+
+  if (await hasAdminUsers()) {
+    return false
+  }
+
   const credentials = getAdminCredentials()
   if (!credentials) return false
   return safeEqualString(username, credentials.username) && safeEqualString(password, credentials.password)
+}
+
+function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString("base64url")
+  const derivedKey = crypto
+    .pbkdf2Sync(password, salt, PASSWORD_HASH_ITERATIONS, PASSWORD_HASH_KEY_LENGTH, PASSWORD_HASH_DIGEST)
+    .toString("base64url")
+
+  return ["pbkdf2", PASSWORD_HASH_DIGEST, String(PASSWORD_HASH_ITERATIONS), salt, derivedKey].join("$")
+}
+
+function verifyPassword(password: string, storedHash: string): boolean {
+  const [algorithm, digest, iterationsValue, salt, expectedHash] = storedHash.split("$")
+  if (
+    algorithm !== "pbkdf2" ||
+    !digest ||
+    !iterationsValue ||
+    !salt ||
+    !expectedHash
+  ) {
+    return false
+  }
+
+  const iterations = Number.parseInt(iterationsValue, 10)
+  if (!Number.isInteger(iterations) || iterations <= 0) return false
+
+  const derivedKey = crypto
+    .pbkdf2Sync(password, salt, iterations, PASSWORD_HASH_KEY_LENGTH, digest)
+    .toString("base64url")
+
+  return safeEqualString(derivedKey, expectedHash)
+}
+
+export async function canRegisterAdmin(): Promise<boolean> {
+  if (!isDatabaseAvailable) return false
+  const adminUsersExist = await hasAdminUsers()
+  return !adminUsersExist
+}
+
+export async function registerAdminCredentials(username: string, password: string): Promise<void> {
+  const registrationAllowed = await canRegisterAdmin()
+  if (!registrationAllowed) {
+    throw new Error("Ya existe un usuario administrador")
+  }
+
+  const user = await createAdminUser(username, hashPassword(password))
+  if (!user) {
+    throw new Error("No se pudo crear el usuario administrador")
+  }
+}
+
+export async function updateCredentials(
+  currentUsername: string,
+  currentPassword: string,
+  newUsername: string,
+  newPassword: string,
+): Promise<void> {
+  const dbUser = await getAdminUserByUsername(currentUsername)
+  if (!dbUser || !verifyPassword(currentPassword, dbUser.password_hash)) {
+    throw new Error("Credenciales actuales incorrectas")
+  }
+
+  const updated = await updateAdminUserCredentials(dbUser.id, newUsername, hashPassword(newPassword))
+  if (!updated) {
+    throw new Error("No se pudieron actualizar las credenciales")
+  }
 }
 
 export async function setAuthCookie(username: string): Promise<void> {
@@ -124,4 +210,3 @@ export async function requireAdminAuth(): Promise<void> {
     throw new Error("Unauthorized")
   }
 }
-
